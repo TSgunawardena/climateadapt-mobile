@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { c, fonts } from './theme';
 import { RequestGate, validateBaseUrl } from './domain';
@@ -47,6 +47,7 @@ export default function PlaceWorkspace({ base, onBaseChange }: Props) {
   const [update, setUpdate] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [mapError, setMapError] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const gate = useRef(new RequestGate());
   const request = useRef<AbortController | null>(null);
   const busy = Boolean(pending);
@@ -67,7 +68,7 @@ export default function PlaceWorkspace({ base, onBaseChange }: Props) {
     request.current?.abort();
     const id = gate.current.next(), ctrl = new AbortController(), started = Date.now();
     request.current = ctrl; let timedOut = false;
-    setPending(label); setError(''); setUpdate(''); setSeconds(0); setResult(null); setMapError(false);
+    setPending(label); setError(''); setUpdate(''); setSeconds(0); setResult(null); setMapError(false); setMapOpen(false);
     const ticker = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
     const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, 60000);
     try {
@@ -195,9 +196,21 @@ export default function PlaceWorkspace({ base, onBaseChange }: Props) {
       </Panel>
       {result.value.mapPath && <Panel title="Local screening evidence">
         {mapError ? <Text style={s.body}>The evidence map could not load. The numerical result is still available above; run the analysis again to regenerate its map.</Text> :
-          <Image source={{ uri: `${base}${result.value.mapPath}` }} style={s.map} contentFit="contain" cachePolicy="none"
-            accessibilityLabel="Four-panel V3 area evidence: elevation, susceptibility score, flagged land and coast distance. Numerical findings are listed above."
-            onError={() => setMapError(true)} />}
+          <>
+            <Pressable accessibilityRole="button" accessibilityLabel="Enlarge the screening evidence image" accessibilityHint="Opens the image full screen" onPress={() => setMapOpen(true)}>
+              <Image source={{ uri: `${base}${result.value.mapPath}` }} style={s.map} contentFit="contain" cachePolicy="none"
+                accessible={false} onError={() => setMapError(true)} />
+              <Text style={s.enlargeHint}>Tap to enlarge ↗</Text>
+            </Pressable>
+            <Modal visible={mapOpen} transparent animationType="fade" onRequestClose={() => setMapOpen(false)}>
+              <View style={s.viewerOverlay}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Close enlarged image" onPress={() => setMapOpen(false)} style={s.viewerClose}>
+                  <Text style={s.viewerCloseText}>Close</Text>
+                </Pressable>
+                <Image source={{ uri: `${base}${result.value.mapPath}` }} style={s.viewerImage} contentFit="contain" cachePolicy="none" />
+              </View>
+            </Modal>
+          </>}
       </Panel>}
       <Panel title="What to do next"><Text style={s.body}>Review the mapped area with qualified GIS and engineering personnel before any planning decision.</Text><Text style={s.body}>{result.value.warning}</Text></Panel>
     </>}
@@ -226,5 +239,10 @@ const s = StyleSheet.create({
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   metric: { flexGrow: 1, flexBasis: 130, gap: 4, paddingVertical: 8 },
   number: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: c.blue },
+  enlargeHint: { fontFamily: fonts.semi, fontSize: 13, lineHeight: 20, color: c.blue, textAlign: 'center', paddingVertical: 10 },
   map: { width: '100%', aspectRatio: 14 / 11, borderRadius: 12 },
+  viewerOverlay: { flex: 1, backgroundColor: '#101820', justifyContent: 'center', padding: 16 },
+  viewerClose: { alignSelf: 'flex-end', paddingHorizontal: 16, paddingVertical: 10 },
+  viewerCloseText: { fontFamily: fonts.bold, fontSize: 15, color: c.white },
+  viewerImage: { flex: 1, width: '100%' },
 });

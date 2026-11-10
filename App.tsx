@@ -17,6 +17,7 @@ import PhotoFindings from './src/PhotoFindings';
 type Screen = 'home'|'capture'|'review'|'analysis'|'setup'|'explore'|'planning'|'reports';
 type Photo = {uri:string;width:number;height:number;bytes:number;originalBytes?:number;created:string};
 const coast=require('./assets/design/coast.jpg');
+const coastMotion=require('./assets/design/coast-motion.gif');
 const icons={home:require('./assets/design/home.svg'),explore:require('./assets/design/map.svg'),capture:require('./assets/design/camera.svg'),planning:require('./assets/design/plan.svg'),reports:require('./assets/design/file.svg'),back:require('./assets/design/back.svg'),settings:{uri:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%233653FF%22 stroke-width=%221.8%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M4 6h16M4 12h16M4 18h16%22/%3E%3Ccircle cx=%228%22 cy=%226%22 r=%222%22 fill=%22white%22/%3E%3Ccircle cx=%2216%22 cy=%2212%22 r=%222%22 fill=%22white%22/%3E%3Ccircle cx=%2210%22 cy=%2218%22 r=%222%22 fill=%22white%22/%3E%3C/svg%3E'}};
 const cache=FS.cacheDirectory?`${FS.cacheDirectory}climateadapt/`:'';
 const labels:Record<DemoMode,string>={normal:'Normal result',low:'Needs review',slow:'Slow (6 seconds)',error:'Service unavailable',rate:'Service busy',malformed:'Unreadable response',timeout:'Timeout (60 seconds)'};
@@ -92,6 +93,39 @@ function ScanningPhoto({uri}:{uri:string}){
  );
 }
 
+// A bundled camera-motion GIF, with the original JPEG as a still fallback.
+function LiveCoast({height}:{height:number}){
+ const[reduceMotion,setReduceMotion]=useState(true);
+ const[foreground,setForeground]=useState(AppState.currentState!=='background'&&AppState.currentState!=='inactive');
+ const[gifFailed,setGifFailed]=useState(false);
+ useEffect(()=>{
+  let mounted=true;
+  let changed=false;
+  const preference=AccessibilityInfo.addEventListener('reduceMotionChanged',value=>{
+   changed=true;
+   if(mounted)setReduceMotion(value);
+  });
+  void AccessibilityInfo.isReduceMotionEnabled().then(value=>{
+   if(mounted&&!changed)setReduceMotion(value);
+  }).catch(()=>{});
+  const appState=AppState.addEventListener('change',value=>setForeground(value==='active'));
+  return()=>{mounted=false;preference.remove();appState.remove();};
+ },[]);
+ const animate=foreground&&!reduceMotion&&!gifFailed;
+ return (
+  <View style={{height,width:'100%',overflow:'hidden',borderRadius:24}} pointerEvents="none">
+   <Image
+    source={animate?coastMotion:coast}
+    style={StyleSheet.absoluteFill}
+    contentFit="cover"
+    autoplay={animate}
+    accessible={false}
+    onError={()=>{if(animate)setGifFailed(true);}}
+   />
+  </View>
+ );
+}
+
 function Content(){
  const[loaded,fontError]=useFonts({Manrope_400Regular,Manrope_600SemiBold,Manrope_700Bold,Manrope_800ExtraBold});
  const[screen,setScreen]=useState<Screen>('home');const[photo,setPhoto]=useState<Photo|null>(null);const[state,setState]=useState<AnalysisState>({kind:'idle'});
@@ -137,14 +171,14 @@ function Content(){
  <View style={s.homeIntro}><Text style={s.homeEyebrow}>A CLEARER VIEW</Text><Text style={s.homeTitle}>Understand your{`\n`}surroundings.</Text><Text style={s.homeDescription}>Explore a location or analyse an outdoor photo.</Text></View>
  <View style={s.primaryAction}><View style={s.actionIcon}><Icon name="capture"/></View><Text style={s.actionTitle}>Start with a photo</Text><Text style={s.actionBody}>Take a photo or choose one from your gallery to review visible conditions.</Text><Button title="Analyse a photo" onPress={()=>go('capture')}/></View>
  <Pressable accessibilityRole="button" accessibilityLabel="Explore a location. Search a place and view location screening." onPress={()=>go('explore')} style={({pressed})=>[s.exploreAction,pressed&&{opacity:0.86}]}>
- <Image source={coast} style={s.exploreImage} contentFit="cover" accessible={false}/><View style={s.exploreBody}><View style={s.actionHeading}><Text style={s.actionTitle}>Explore a location</Text><Text style={s.actionArrow} accessible={false}>→</Text></View><Text style={s.actionBody}>Search a place and check the surrounding area.</Text></View>
+ <LiveCoast height={112}/><View style={s.exploreBody}><View style={s.actionHeading}><Text style={s.actionTitle}>Explore a location</Text><Text style={s.actionArrow} accessible={false}>→</Text></View><Text style={s.actionBody}>Search a place and check the surrounding area.</Text></View>
  </Pressable>
  <Text style={s.homeFootnote}>Preliminary observations for human review.</Text>
  </View>}
 
  {screen==='capture'&&<><Text style={s.eyebrow}>PHOTO + OPTIONAL LOCATION + TIME</Text>
  <Card title="You choose what to share" body={photoBackend==='mock'?'Your photo, notes and optional location go to the configured photo demo server after you tap Analyse. Its results are fixed examples.':'Your photo, notes and optional GPS go to your configured laptop service after you tap Analyse. Gemma processes the image locally. GPS is used only for separate location screening. Temporary server upload files are closed after processing; no photo archive is created.'} tone="mint"/>
- <Image source={coast} style={s.captureImage} contentFit="cover" accessibilityLabel="AI-generated coastal illustration, not a field photograph"/><Text style={s.caption}>Illustrative camera preview · not a field photo</Text>
+ <View accessible accessibilityLabel="Animated coastal illustration, not a field photograph"><LiveCoast height={225}/></View><Text style={s.caption}>Illustrative camera preview · not a field photo</Text>
  <Card title="A useful photo shows context" body="Include the ground, drainage and surroundings. Keep yourself safe and avoid identifying details." tone="mint"/><View style={s.spacer}/>
  <Button title={busy?'Preparing photo…':'Take a photo'} onPress={()=>void choose(true)} disabled={busy}/><Button title="Choose from gallery" secondary onPress={()=>void choose(false)} disabled={busy}/><Button title="Not now — return Home" secondary onPress={()=>go('home')}/></>}
  {screen==='review'&&photo&&<><Text style={s.eyebrow}>STEP 2 · CONFIRM</Text><Image source={{uri:photo.uri}} style={s.reviewImage} contentFit="cover" cachePolicy="none" accessibilityLabel="Your selected photograph, not yet analysed"/><Text style={s.caption}>{photo.width} × {photo.height} · {Math.round(photo.bytes/1024)} KB JPEG{photo.originalBytes?` · original ${Math.round(photo.originalBytes/1024)} KB`:''}</Text><Card title={location?'Location ready to share':'Location is optional'} body={location?`${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}. These coordinates will be sent with this observation.`:'No location is attached. You can still send the photograph.'} tone="mint"/><Button title={location?'Remove attached location':'Add my current location'} secondary onPress={()=>location?setLocation(null):void addLocation()} disabled={busy}/><Text style={s.cardTitle}>Observation notes (optional)</Text><Text style={s.caption}>Notes are kept with this temporary observation, but are not passed as instructions to the vision model.</Text><TextInput accessibilityLabel="Observation notes" placeholder="What did you notice?" placeholderTextColor={c.muted} multiline maxLength={500} value={notes} onChangeText={setNotes} style={s.input}/><Card title="Two separate checks" body="Photo observations and location susceptibility are separate evidence. Neither establishes flood probability." tone="blueTint"/><Text style={s.caption}>Temporary app copies are removed when discarded or on restart. Nothing is added to your gallery.</Text><View style={s.spacer}/><Button title="Analyse observation" onPress={()=>void submit()} disabled={busy}/><Button title="Choose another photo" secondary onPress={()=>go('capture')}/><Button title="Discard photo" secondary onPress={()=>void clearPhoto().then(()=>go('home'))}/></>}
