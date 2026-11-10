@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "ClimateAdapt",
+    "slug": "climateadapt-prototype",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "nz.climateadapt.prototype",
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-image",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose an observation photo to send to your configured demo analysis service.",
+          "cameraPermission": "Take an observation photo for the ClimateAdapt prototype.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Attach your current location to an observation only when you choose to."
+        }
+      ]
+    ],
+    "description": "ClimateAdapt photo workflow prototype with a local mock BFF. No real ML or flood forecasts."
+  }
+}
