@@ -1,105 +1,163 @@
-# ClimateAdapt mobile prototype
+# ClimateAdapt Mobile
 
-React Native + Expo + TypeScript, with your existing V3 location backend and a new local Gemma photo endpoint.
+Outdoor photo observations and location screening in one mobile app.
 
-**New photo setup:** [Connect local photo analysis](docs/CONNECT-LOCAL-PHOTO-ANALYSIS.md). Your model is already installed; this guide connects the phone's Capture workflow to it.
+ClimateAdapt Mobile is an Android prototype built with React Native and Expo. Users can take or select an outdoor photo, review preliminary observations from a local vision model, and explore geographic screening results for supported locations in Nelson, New Zealand.
 
-**Existing place setup:** [Connect your web backend](docs/CONNECT-YOUR-WEB-BACKEND.md).
+The app brings these two workflows together while keeping their results separate. A photograph describes visible conditions. A location score describes susceptibility represented by the geographic model.
 
-## What works
+<img src="assets/design/coast.jpg" alt="Coastal illustration used in the ClimateAdapt interface" width="880" />
 
-- Modern Home, camera/gallery selection, image preparation and a real photo preview.
-- Optional notes and GPS, shared only after the user chooses them and submits.
-- Local photo upload to Script 55 → Ollama `gemma3:4b` → validated visual categories → readable observations, uncertainty, follow-up and limitations.
-- Real photo results have no fabricated confidence percentage. The original photo stays visible for human comparison.
-- Optional GPS screening is shown separately. Missing/out-of-coverage GPS does not invalidate an accepted photo response.
-- Explore reuses your actual V3 point/radius screening and the existing service's evidence map when its local runtime is installed.
-- Waiting, cancellation, a 60-second client limit, stale-response rejection and failure recovery.
-- Reports retain chosen text summaries for the session only. No database or persistent photo archive.
-- The original mock photo BFF and failure demonstrations remain available as a separate mode.
-- Planning remains a future-service screen; this update does not call the planning LLM.
+*Interface illustration. This is not a field photograph or a prediction map.*
 
-## Keep the two projects separate
+## What you can do
 
-`ClimateAdapt-AI` is your existing Python web/backend project. `climateadapt-prototype` is this Expo mobile project.
+- **Analyse an outdoor photo** using the camera or gallery, with optional notes and GPS coordinates.
+- **Review before sending** and see a photo-based scanning animation while the request is pending.
+- **Explore a location** and request point or wider-area screening within the prepared data coverage.
+- **Inspect the evidence** behind a result, including model observations, limitations and geographic context.
+- **Recover from failures** with cancellation, timeout handling and retry actions.
+- **Keep session summaries** in app memory without creating a permanent photo archive.
 
-Copy `backend-addon/55_run_photo_bff.py` and `backend-addon/requirements-photo.txt` into the web project's `scripts` folder. Install the requirements in the web project's existing venv, then start Script 55 there. See the photo setup guide for exact Windows commands.
+The main navigation has three tabs — Home, Explore and Capture. Connection settings and session summaries are available through Settings.
 
-Keep Scripts 30/54 running for location results. Stop the old Node mock server on 8080 before starting Script 55 on that port.
+## How it works
 
-| Service | Port |
-| --- | ---: |
-| Existing V3 Script 30 | 8000 |
-| Photo Script 55, or optional original mock | 8080 |
-| Places Script 54 | 8081 |
-| Expo Metro / QR code | 8082 |
-| Local Ollama | 11434 |
+The mobile app communicates with Python backend services running on a laptop. Photo analysis uses Gemma through Ollama. Geographic screening uses the separate ClimateAdapt prediction service.
 
-## Open the updated mobile app
+| Component | Responsibility | Default port |
+| --- | --- | --- |
+| Expo development server | Loads the app in Expo Go | `8082` |
+| Photo backend | Validates photos, calls the vision model and returns observations | `8080` |
+| Places backend | Provides place selection and geographic screening requests | `8081` |
+| Prediction API | Serves geographic model results | `8000` |
+| Ollama | Runs `gemma3:4b` locally | `11434` |
 
-This source uses Expo SDK 58, React Native 0.88.1 and React 19.3.0. Use Node 24 LTS (24.3+) or supported Node 22.13+, and an Expo Go version compatible with this SDK.
+Inference runs on the laptop rather than on the phone. The scanning animation is a waiting indicator and does not measure model progress.
 
-Back up your working mobile source before copying over personal edits. In the updated mobile project:
+The geographic backend is maintained in [ClimateAdapt-AI](https://github.com/TSgunawardena/ClimateAdapt-AI). This mobile repository includes integration scripts in `backend-addon` and connection guides in `docs`.
+
+## Run the mobile app
+
+### Requirements
+
+- Node.js compatible with the `engines` field in `package.json`
+- npm
+- An Android phone with a compatible Expo Go version
+- Phone and laptop connected to the same reachable local network
+- The backend services below for live results
+
+From the mobile project folder, install dependencies and start Expo.
 
 ```powershell
 npm ci
-npx expo start --go --lan --port 8082 --clear
+npx expo start --go --lan --port 8082
 ```
 
-Scan that terminal's new QR code. Phone and laptop must be on the same trusted Wi-Fi.
+Scan the terminal QR code with Expo Go.
 
-In the app's top **Setup**, connect the photo address `http://YOUR-LAPTOP-IP:8080`. It checks whether the endpoint is a live model or a mock and labels results accordingly. In **Explore**, use its separate connection settings for `http://YOUR-LAPTOP-IP:8081`.
+### Start the live services
 
-`localhost` on a phone points to the phone. The API's 8080/8081 addresses belong inside the app, not in Expo Go's app-loading field. A Metro tunnel does not automatically tunnel these separate APIs.
+In your configured **ClimateAdapt AI backend project**, activate its Python environment and run each service in a separate terminal.
 
-## Optional original photo demonstration
+```powershell
+python .\scripts\30_run_prediction_api.py
+```
 
-For fixed results and course failure demonstrations instead of Gemma, stop Script 55 and run this in the mobile project:
+```powershell
+python .\scripts\54_run_mobile_bff.py
+```
+
+```powershell
+python .\scripts\55_run_photo_bff.py
+```
+
+Ollama must also be running with `gemma3:4b` installed.
+
+```powershell
+ollama pull gemma3:4b
+```
+
+The Python commands above run from the backend project, not the mobile project. For initial configuration and the scripts supplied with this repository, see [photo analysis setup](docs/CONNECT-LOCAL-PHOTO-ANALYSIS.md) and [geographic backend setup](docs/CONNECT-YOUR-WEB-BACKEND.md).
+
+### Connect your phone
+
+Find your laptop’s Wi-Fi IPv4 address with `ipconfig`. Set the photo service address in Settings and the places service address in Explore’s connection settings.
+
+| Connection | Example address |
+| --- | --- |
+| Photo analysis | `http://192.168.1.20:8080` |
+| Places and screening | `http://192.168.1.20:8081` |
+
+Replace the example IP with your laptop’s current address. `localhost` and `127.0.0.1` on the phone refer to the phone itself.
+
+These addresses are for local development. The prototype is not configured as an authenticated public service.
+
+### Check service health
+
+Open these addresses on the laptop.
+
+```text
+http://127.0.0.1:8000/health
+http://127.0.0.1:8081/api/health
+http://127.0.0.1:8080/api/health
+```
+
+The photo service should report `vision_ready` as `true`. A successful health check confirms service readiness but does not guarantee that every analysis will complete successfully.
+
+## Try the workflow
+
+1. Open Capture and take or select an outdoor photo.
+2. Review the photo and optionally attach notes or location.
+3. Tap Analyse and wait for the result.
+4. Compare the observations with the original image and read the uncertainty.
+5. Open Explore to select a supported location and request geographic screening.
+
+Optional GPS is used for separate geographic screening. A photo result should not be treated as confirmation of the geographic model.
+
+## Privacy and current limits
+
+The photo backend processes uploads without creating a permanent image archive. Images still travel from the phone to the configured laptop and are processed there. The app keeps a temporary working preview, and session summaries remain in memory until the app restarts.
+
+**Automatic face and number-plate masking is planned and is not implemented in this version.** The animated blur on the waiting screen is only a visual effect. It does not redact the uploaded image.
+
+Photo observations may be incomplete or incorrect. They do not establish water depth, the cause of water or a calibrated flood probability. Geographic screening is limited to the prepared Nelson dataset and requires human interpretation.
+
+This is an academic prototype for preliminary screening and review. It is not an emergency-warning service or a substitute for a site assessment. Model response times depend on hardware, image content and available resources. The first request may take longer while the model loads.
+
+Android is the current testing target. iOS and a complete installable PWA have not been verified.
+
+## Development
+
+```powershell
+npm run typecheck
+npm run lint
+npm test
+```
+
+Optional exports are available through `npm run export:android` and `npm run export:web`. A web export alone does not establish offline PWA support.
+
+The original mock backend is available for development and failure demonstrations.
 
 ```powershell
 npm run backend
 ```
 
-Reconnect the photo service through Setup. It reports `mode: mock`; the response-mode controls then appear. Normal/low/slow/error/rate/malformed/timeout modes are unchanged. Mock values are not evidence that the photograph contains water.
+Mock responses are demonstrations rather than model findings. Use either the live photo backend or the mock backend on the photo-service port, not both at once.
 
-The real photo contract is `vision-v1`, implemented in `src/domain.ts` and `backend-addon/55_run_photo_bff.py`. The existing mock route/field/failure patterns follow the course approach, but the exact lecturer-supplied Moodle BFF schema has not been supplied here. Compare it before substituting that BFF. Keep all privileged credentials on the server.
+## Next steps
 
-## Checks and evidence
+- Automatic face and number-plate detection with a redacted preview
+- Simpler Capture, Explore and results screens
+- Broader testing of image suitability, accessibility and request recovery
+- A repeatable standalone Android build
 
-```powershell
-npm test
-npm run typecheck
-npm run lint
-npm run export:web
-npm run export:android
-```
+## Author
 
-For Python checks use the environment with the addon requirements installed:
+Tharusha Gunawardena
 
-```powershell
-python -m unittest discover -s .\backend-addon -v
-```
+Developed as part of the Master of Information Technology programme at NMIT.
 
-See [photo verification](docs/PHOTO-VERIFICATION.md) and [place verification](docs/PLACES-VERIFICATION.md). Exports validate assets/JavaScript, not an APK installation. This workspace tested model transport with fixture replies. Real structured Gemma output, performance and native phone operation require testing on your laptop/phone.
+## Licence
 
-The user has separately shown a working phone location result/map and a direct Gemma CLI photo reply of approximately five seconds. Neither proves the new full photo round trip or broad model accuracy. Record actual errors and timings in coursework evidence.
-
-## Privacy and limitations
-
-Photos are re-encoded in the app; Script 55 decodes and re-encodes again without forwarding EXIF to Ollama. The server uses temporary processing only and closes multipart spool files after processing. Abrupt OS/process failure and secure erasure are outside that guarantee. Client copies live in app cache until discard/replacement/normal cleanup or next launch; an OS kill can leave temporary files until restart. The user's original gallery photo is never deleted.
-
-Notes are not instructions to the vision model. Optional GPS is used for a separate V3 request. Reports store chosen text in JS memory and disappear on restart. Explore's original web service still writes area maps/JSON to its existing output directory; these are location-analysis artifacts, not a photo archive.
-
-The API constrains allowed model claims using a fixed code vocabulary and templates. That does not establish visual correctness. Every result needs human review. A V3 susceptibility score is uncalibrated and is not a flood probability; a photograph cannot establish water cause/depth or coastal flooding.
-
-The APIs use local HTTP, permissive CORS and no authentication for a trusted-LAN prototype. Authenticated HTTPS and a reviewed data-retention model are needed before external deployment.
-
-## Design and remaining work
-
-Figma: https://www.figma.com/design/CB6ftilWBAyxpKZdphGtaL?node-id=12-74
-
-The original icons and AI coastline artwork remain from the project design. Manrope is bundled via its package. The app uses the system camera/gallery and has no artificial boot delay.
-
-Remaining work includes native end-to-end photo verification, TalkBack/large text/landscape, classmates' feedback, upload/metadata benchmarks, model-quality evaluation and later saved reports/planning. Web export is a development surface, not an offline/installable PWA.
-
-The ZIP excludes dependencies, build outputs, local Git metadata, runtime rasters/models and user test photographs. No changes were pushed to GitHub. Disclose AI assistance according to your course requirements.
+See [LICENSE](LICENSE). Third-party models, libraries and datasets remain subject to their own terms.
