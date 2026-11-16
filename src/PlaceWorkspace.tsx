@@ -1,3 +1,4 @@
+import { evaluation } from './evaluation';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -197,7 +198,7 @@ export default function PlaceWorkspace({ base, onBaseChange }: Props) {
       {result.value.mapPath && <Panel title="Local screening evidence">
         {mapError ? <Text style={s.body}>The evidence map could not load. The numerical result is still available above; run the analysis again to regenerate its map.</Text> :
           <>
-            <Pressable accessibilityRole="button" accessibilityLabel="Enlarge the screening evidence image" accessibilityHint="Opens the image full screen" onPress={() => setMapOpen(true)}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Enlarge the screening evidence image" accessibilityHint="Opens the image full screen" onPress={() => { evaluation.log('map_opened'); setMapOpen(true); }}>
               <Image source={{ uri: `${base}${result.value.mapPath}` }} style={s.map} contentFit="contain" cachePolicy="none"
                 accessible={false} onError={() => setMapError(true)} />
               <Text style={s.enlargeHint}>Tap to enlarge ↗</Text>
@@ -246,3 +247,4 @@ const s = StyleSheet.create({
   viewerCloseText: { fontFamily: fonts.bold, fontSize: 15, color: c.white },
   viewerImage: { flex: 1, width: '100%' },
 });
+
