@@ -13,7 +13,9 @@ The app brings these two workflows together while keeping their results separate
 ## What you can do
 
 - **Analyse an outdoor photo** using the camera or gallery, with optional notes and GPS coordinates.
-- **Review before sending** and see a photo-based scanning animation while the request is pending.
+- **Check private details automatically** when a photo is selected, then review the covered preview and adjust missed or incorrect covers.
+- **Review before analysis** and see a photo-based scanning animation while the request is pending.
+- **Enlarge geographic evidence** to inspect the screening map more closely.
 - **Explore a location** and request point or wider-area screening within the prepared data coverage.
 - **Inspect the evidence** behind a result, including model observations, limitations and geographic context.
 - **Recover from failures** with cancellation, timeout handling and retry actions.
@@ -28,12 +30,13 @@ The mobile app communicates with Python backend services running on a laptop. Ph
 | Component | Responsibility | Default port |
 | --- | --- | --- |
 | Expo development server | Loads the app in Expo Go | `8082` |
+| Privacy service | Detects faces and number plates and exports reviewed covers | `8083` |
 | Photo backend | Validates photos, calls the vision model and returns observations | `8080` |
 | Places backend | Provides place selection and geographic screening requests | `8081` |
 | Prediction API | Serves geographic model results | `8000` |
 | Ollama | Runs `gemma3:4b` locally | `11434` |
 
-Inference runs on the laptop rather than on the phone. The scanning animation is a waiting indicator and does not measure model progress.
+Privacy detection and model inference run on the laptop rather than on the phone. The privacy helper uses YuNet for faces and an open-lpr YOLOX-tiny model for number plates. Covers are solid black areas, not the decorative blur used by the waiting animation. The scanning animation is a waiting indicator and does not measure model progress.
 
 The geographic backend is maintained in [ClimateAdapt-AI](https://github.com/TSgunawardena/ClimateAdapt-AI). This mobile repository includes integration scripts in `backend-addon` and connection guides in `docs`.
 
@@ -80,12 +83,35 @@ ollama pull gemma3:4b
 
 The Python commands above run from the backend project, not the mobile project. For initial configuration and the scripts supplied with this repository, see [photo analysis setup](docs/CONNECT-LOCAL-PHOTO-ANALYSIS.md) and [geographic backend setup](docs/CONNECT-YOUR-WEB-BACKEND.md).
 
+### Start the privacy service
+
+Script 56 runs in the **backend project** using a separate Python environment so its computer-vision dependencies stay apart from the existing geographic and photo services. Copy the five privacy source files from `backend-addon` into that project's `scripts` folder if they are not already there. Do not copy virtual environments or downloaded model files between projects.
+
+One-time setup from the backend project root
+
+```powershell
+python -m venv .venv-privacy
+.\.venv-privacy\Scripts\python.exe -m pip install -r .\scripts\requirements-privacy.txt
+.\.venv-privacy\Scripts\python.exe .\scripts\prepare_privacy_models.py
+```
+
+Start this service in its own terminal on each development session
+
+```powershell
+.\.venv-privacy\Scripts\python.exe .\scripts\56_run_privacy_bff.py
+```
+
+If this setup is already working, start the service without repeating installation or model downloads. The model-preparation script downloads pinned model versions and verifies their SHA-256 checksums. Keep `.venv-privacy` and `scripts/privacy-models` out of Git.
+
+See [privacy masking](docs/PRIVACY-MASKING.md) for detector sources, licences, endpoints and testing details.
+
 ### Connect your phone
 
-Find your laptop’s Wi-Fi IPv4 address with `ipconfig`. Set the photo service address in Settings and the places service address in Explore’s connection settings.
+Find your laptop’s Wi-Fi IPv4 address with `ipconfig`. Set the photo and privacy service addresses in Settings and the places service address in Explore’s connection settings.
 
 | Connection | Example address |
 | --- | --- |
+| Privacy checking | `http://192.168.1.20:8083` |
 | Photo analysis | `http://192.168.1.20:8080` |
 | Places and screening | `http://192.168.1.20:8081` |
 
@@ -101,17 +127,19 @@ Open these addresses on the laptop.
 http://127.0.0.1:8000/health
 http://127.0.0.1:8081/api/health
 http://127.0.0.1:8080/api/health
+http://127.0.0.1:8083/api/health
 ```
 
-The photo service should report `vision_ready` as `true`. A successful health check confirms service readiness but does not guarantee that every analysis will complete successfully.
+The photo service should report `vision_ready` as `true`, and the privacy service should report `ready` as `true` with contract `privacy-v1`. A successful health check confirms service readiness but does not guarantee that every analysis will complete successfully.
 
 ## Try the workflow
 
-1. Open Capture and take or select an outdoor photo.
-2. Review the photo and optionally attach notes or location.
-3. Tap Analyse and wait for the result.
-4. Compare the observations with the original image and read the uncertainty.
-5. Open Explore to select a supported location and request geographic screening.
+1. Open Capture and take or select an outdoor photo. Privacy checking starts automatically.
+2. Review the detected covers. Use **Adjust covers** if private details were missed or an incorrect area was covered.
+3. Confirm that you checked the whole photo and tap **Use this photo**. This exports a fresh JPEG with permanent covers.
+4. Add optional notes or location, then tap **Analyse observation**.
+5. Compare the observations with the reviewed image and read the uncertainty.
+6. Open Explore to select a supported location and request geographic screening. Tap its evidence map to enlarge it.
 
 Optional GPS is used for separate geographic screening. A photo result should not be treated as confirmation of the geographic model.
 
@@ -119,7 +147,11 @@ Optional GPS is used for separate geographic screening. A photo result should no
 
 The photo backend processes uploads without creating a permanent image archive. Images still travel from the phone to the configured laptop and are processed there. The app keeps a temporary working preview, and session summaries remain in memory until the app restarts.
 
-**Automatic face and number-plate masking is planned and is not implemented in this version.** The animated blur on the waiting screen is only a visual effect. It does not redact the uploaded image.
+**Automatic face and number-plate detection is implemented, with human review before analysis.** The original prepared photo is sent to the configured laptop privacy helper for detection and again to apply the reviewed covers. It is not sent to Gemma at this stage. Applying the covers creates a replacement JPEG with the covered pixels removed and without EXIF metadata. When Analyse is tapped, the app sends that reviewed replacement to the photo backend.
+
+Detection can miss faces or plates and can cover the wrong detail. Users must check the complete image, including other identifying details that these detectors do not target. Zero detections do not guarantee that an image contains no private information. Analysis remains blocked for unchecked photos and while the privacy editor is open. A failed check does not silently send the unchecked original.
+
+The privacy service does not create a photo archive. The animated blur on the analysis waiting screen remains a visual effect and does not perform privacy masking. These local development services are not authenticated public endpoints; the review gate is enforced by the app, not a security guarantee against callers sending requests directly to the photo API.
 
 Photo observations may be incomplete or incorrect. They do not establish water depth, the cause of water or a calibrated flood probability. Geographic screening is limited to the prepared Nelson dataset and requires human interpretation.
 
@@ -145,10 +177,16 @@ npm run backend
 
 Mock responses are demonstrations rather than model findings. Use either the live photo backend or the mock backend on the photo-service port, not both at once.
 
+## Evaluation support
+
+Settings includes facilitator-only Evaluation controls. Obtain voluntary consent, enter a participant code and start a session before recording tasks. The event log stays in memory and must be exported before the app closes or restarts. It excludes photos, GPS coordinates, observation notes and model response text.
+
+See [pilot protocol](docs/HCI-PILOT.md) and [pilot notes](docs/HCI-PILOT-NOTES.md). Developer rehearsals and participant sessions should be reported separately. Device accessibility checks do not establish full accessibility conformance.
+
 ## Next steps
 
-- Automatic face and number-plate detection with a redacted preview
-- Simpler Capture, Explore and results screens
+- Broader testing of privacy detection and manual correction
+- Refine the interface using participant feedback
 - Broader testing of image suitability, accessibility and request recovery
 - A repeatable standalone Android build
 
