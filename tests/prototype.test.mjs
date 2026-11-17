@@ -6,7 +6,31 @@ import { createMockServer, containsExif } from '../server/mock-bff.mjs';
 import { parseResult, RequestGate, validateBaseUrl } from '../src/domain.ts';
 
 const jpeg = await readFile(new URL('../assets/design/coast.jpg',import.meta.url));
-async function withServer(fn){const server=createMockServer({delays:{normal:5,slow:35,timeout:150}});server.listen(0,'127.0.0.1');await once(server,'listening');try{await fn(`http://127.0.0.1:${server.address().port}`);}finally{server.closeAllConnections();await new Promise(r=>server.close(r));}}
+async function withServer(fn) {
+ for (let attempt = 0; attempt < 10; attempt++) {
+  const server = createMockServer({ delays: { normal: 5, slow: 35, timeout: 150 } });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  try {
+   const base = `http://127.0.0.1:${server.address().port}`;
+   // The OS can assign a port that Fetch blocks. Retry setup only, never the test.
+   try {
+    const response = await fetch(`${base}/api/health`);
+    await response.arrayBuffer();
+   } catch (error) {
+    if (error.cause?.message === 'bad port') continue;
+    throw error;
+   }
+   await fn(base);
+   return;
+  } finally {
+   server.closeAllConnections();
+   await new Promise(resolve => server.close(resolve));
+  }
+ }
+ throw new Error('Could not allocate a Fetch-compatible test port after 10 attempts.');
+}
+
 function body(bytes=jpeg,type='image/jpeg'){const f=new FormData();f.append('image',new Blob([bytes],{type}),'photo.jpg');return f;}
 
 test('health reports mock mode, normal and low results are distinguishable',()=>withServer(async base=>{
