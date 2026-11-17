@@ -62,3 +62,8 @@ coverage/
 *.mobileprovision
 uploads/
 test-photo.*
+
+# Privacy service environment and downloaded weights
+.venv-privacy/
+backend-addon/privacy-models/
+

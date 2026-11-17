@@ -4,7 +4,8 @@ export type Outcome = 'independent' | 'assisted' | 'incomplete' | 'service_block
 export type EventName = 'session_start' | 'session_end' | 'task_start' | 'task_end' |
   'capture_opened' | 'photo_selected' | 'photo_ready' | 'preparation_failed' |
   'analysis_requested' | 'result_received' | 'result_shown' | 'request_failed' |
-  'waiting_cancelled' | 'photo_discarded' | 'review_opened' | 'map_opened';
+  'waiting_cancelled' | 'photo_discarded' | 'review_opened' | 'map_opened' |
+  'privacy_requested' | 'privacy_review_opened' | 'privacy_applied' | 'privacy_failed' | 'privacy_cancelled';
 type Detail = 'none' | 'camera' | 'gallery' | 'done' | 'needs_review' |
   'mock_done' | 'mock_needs_review' | 'independent' | 'assisted' | 'incomplete' | 'service_blocked';
 type Row = { participant: string; task: Task | ''; event: EventName; elapsed_ms: number; detail: Detail };
@@ -14,7 +15,7 @@ const details = new Set<Detail>(['none', 'camera', 'gallery', 'done', 'needs_rev
 const names = new Set<EventName>(['session_start','session_end','task_start','task_end',
   'capture_opened','photo_selected','photo_ready','preparation_failed','analysis_requested',
   'result_received','result_shown','request_failed','waiting_cancelled','photo_discarded',
-  'review_opened','map_opened']);
+  'review_opened','map_opened','privacy_requested','privacy_review_opened','privacy_applied','privacy_failed','privacy_cancelled']);
 export function createEvaluation(clock = () => performance.now()) {
   let rows: Row[] = [];
   let started = 0;
