@@ -10,8 +10,8 @@ function Action({ text, onPress, disabled = false, primary = false }: { text: st
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
     style={[s.action, primary && s.primary, disabled && { opacity: .45 }]}><Text style={[s.actionText,primary && s.primaryText]}>{text}</Text></Pressable>;
 }
-export default function PrivacyMaskEditor({ uri, scan, base, onApply, onClose }: {
-  uri: string; scan: PrivacyScan; base: string;
+export default function PrivacyMaskEditor({ uri, scan, onApply, onClose }: {
+  uri: string; scan: PrivacyScan;
   onApply: (photo: MaskedPhoto) => void; onClose: () => void;
 }) {
   const [regions, setRegions] = useState<MaskRegion[]>(scan.regions);
@@ -38,10 +38,10 @@ export default function PrivacyMaskEditor({ uri, scan, base, onApply, onClose }:
     const timeout = setTimeout(() => controller.abort(), 30000);
     setBusy(true); setError('');
     try {
-      const photo = await applyPrivacy(base, uri, scan.source_sha256, regions, controller.signal, scan);
+      const photo = await applyPrivacy(uri, scan.source_sha256, regions, controller.signal, scan);
       onApply(photo);
     } catch (failure) {
-      setError(controller.signal.aborted ? 'Applying covers timed out. Your original has not been sent to Gemma.' :
+      setError(controller.signal.aborted ? 'Applying covers timed out. No unchecked photo has been uploaded.' :
         failure instanceof Error ? failure.message : 'The covers could not be applied.');
     } finally { clearTimeout(timeout); request.current = null; setBusy(false); }
   }
@@ -108,7 +108,7 @@ export default function PrivacyMaskEditor({ uri, scan, base, onApply, onClose }:
         {busy && <Text accessibilityLiveRegion="polite" style={s.body}>Applying covers to the image…</Text>}
         <Action text="Use this photo" primary disabled={!checked || !ready || busy} onPress={() => void apply()}/>
         <Action text="Cancel without applying" disabled={busy} onPress={close}/>
-        <Text style={s.body}>Continuing creates a new image with permanent covers. It will only be sent to Gemma when you tap Analyse.</Text>
+        <Text style={s.body}>Covers are applied on this phone. Only the reviewed image leaves the phone when you tap Analyse.</Text>
       </ScrollView>
     </SafeAreaView>
   </Modal>;

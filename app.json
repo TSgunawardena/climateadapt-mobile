@@ -4,21 +4,19 @@
     "slug": "climateadapt-prototype",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/climateadapt-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
+  "icon": "./assets/climateadapt-icon.png",
+  "predictiveBackGestureEnabled": false,
       "package": "nz.climateadapt.prototype",
-      "usesCleartextTraffic": true
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,7 +27,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose an observation photo to send to your configured demo analysis service.",
+          "photosPermission": "Choose a photo for local privacy checking and observation analysis.",
           "cameraPermission": "Take an observation photo for the ClimateAdapt prototype.",
           "microphonePermission": false
         }
@@ -39,8 +37,22 @@
         {
           "locationWhenInUsePermission": "Attach your current location to an observation only when you choose to."
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-status-bar"
     ],
-    "description": "ClimateAdapt photo workflow prototype with a local mock BFF. No real ML or flood forecasts."
+    "description": "Outdoor photo observations with local privacy masking and separate location susceptibility screening. Preliminary results require human review.",
+    "extra": {
+      "eas": {
+        "projectId": "a7f7cdc5-f5aa-48f9-b73b-ed82f1fb978a"
+      }
+    }
   }
 }

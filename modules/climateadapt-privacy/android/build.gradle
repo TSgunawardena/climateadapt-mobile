@@ -1,0 +1,32 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'nz.climateadapt.privacy'
+version = '0.1.0'
+android {
+  namespace 'nz.climateadapt.privacy'
+  defaultConfig { 
+    versionCode 1
+    versionName '0.1.0' 
+    consumerProguardFiles 'consumer-rules.pro'
+    }
+}
+dependencies {
+  implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.32.0'
+}
+
+tasks.register('verifyPrivacyModels') {
+  doLast {
+    [
+      'face_detection_yunet_2023mar.onnx': '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
+      'plate_yolox_tiny_640.onnx': 'e5350bb2152eb44fa129b2438d1e39bbbf3c27accfe51cd893ce6e17d028d0b9'
+    ].each { name, expected ->
+      def model = file("src/main/assets/privacy/$name")
+      if (!model.isFile()) throw new GradleException("Missing privacy model $name. Run npm run privacy:models before building.")
+      def hash = java.security.MessageDigest.getInstance('SHA-256').digest(model.bytes).encodeHex().toString()
+      if (hash != expected) throw new GradleException("Invalid privacy model $name")
+    }
+  }
+}
+tasks.named('preBuild').configure { dependsOn('verifyPrivacyModels') }

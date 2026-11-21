@@ -1,0 +1,4 @@
+{
+  "platforms": ["android"],
+  "android": { "modules": ["nz.climateadapt.privacy.ClimateAdaptPrivacyModule"] }
+}

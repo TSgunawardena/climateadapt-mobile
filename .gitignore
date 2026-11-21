@@ -67,3 +67,6 @@ test-photo.*
 .venv-privacy/
 backend-addon/privacy-models/
 
+
+# Bundled detector weights are prepared from pinned downloads
+/modules/climateadapt-privacy/android/src/main/assets/privacy/
