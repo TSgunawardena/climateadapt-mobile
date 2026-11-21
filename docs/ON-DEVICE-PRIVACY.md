@@ -1,6 +1,6 @@
-# Android on-device privacy preparation
+# Android on-device privacy
 
-This is an experimental branch implementation. The Android native build and Pixel tests remain pending. Do not describe this branch as a verified phone privacy solution in the assessment report yet. The previously installed APK continues to use the laptop privacy service.
+The Android implementation has been built and merged. Developer testing on a Pixel 9 Pro running Android 17 confirmed privacy checking and applying covers without Wi-Fi or GPS. Connected photo analysis was also reported working. These observations do not establish comprehensive accuracy, performance, security or accessibility. Older APKs still use the laptop privacy service.
 
 ## What changes
 
@@ -8,13 +8,13 @@ Camera or gallery selection still opens automatic privacy checking. Detection no
 
 The existing preview and cover controls remain. After review, Android Canvas replaces covered pixels, and Android's JPEG encoder writes a new image payload without copying the source EXIF data. Source-image SHA-256 binding and region validation remain mandatory. The app saves this replacement in its private cache and sends only that reviewed image when Analyse is tapped.
 
-The phone still needs the laptop for Gemma photo analysis and geographic screening. Script 56 is not used by this branch. Keep the backend files and the working APK until the new native build is validated.
+The phone still needs the laptop for Gemma photo analysis and geographic screening. Script 56 is not used by the current Android build. Keep its backend files if supporting older APKs.
 
 ## Fail-safe behaviour
 
 There is no automatic laptop fallback. A missing native module, missing or invalid model, unexpected detector output, cancellation or export failure cannot silently upload the original. Detection requires both models to initialise. Zero detected regions still requires review and a fresh JPEG export.
 
-Expo Go and the old installed APK do not contain this native module. They can open the interface but privacy checking will show that a new Android build is required. Web and iOS are unsupported in this branch. A new build is required to test the native path, even if TypeScript and Android JavaScript export pass.
+Expo Go and the old installed APK do not contain this native module. They can open the interface but privacy checking will show that a new Android build is required. Web and iOS do not support this native privacy path. A new build is required to test the native path, even if TypeScript and Android JavaScript export pass.
 
 Cancellation stops accepting the result in JavaScript. Native computation already running may finish in the background. It handles no network transfer, and ignored apply results do not create native output files. Detector calls are serialised to bound concurrent image memory. Performance and cancellation responsiveness still require device testing.
 
@@ -35,7 +35,14 @@ The setup registers an EAS post-install hook so cloud builds download and verify
 
 Use the bundled models at runtime. Do not add runtime downloads of image content or an automatic server fallback.
 
-## Verification completed during preparation
+## Verification and observed device checks
+
+- The Android release APK compiled and installed on the developer's Pixel 9 Pro running Android 17.
+- An initial JNI crash during inference was resolved in device testing after adding ONNX Runtime's required keep rule. The module's `android/consumer-rules.pro` contains `-keep class ai.onnxruntime.** { *; }` and `build.gradle` includes it through `consumerProguardFiles`. Preserve both when rebuilding.
+- Privacy detection and applying covers were reported working without Wi-Fi or GPS, with Script 56 stopped.
+- Live photo analysis was reported successful after connection to Script 55. An earlier request returned a backend 504; cold-start inference is a possible explanation, not a measured cause. No backend timeout change was applied by the developer.
+
+Preparation checks
 
 - TypeScript passed.
 - All 25 Node tests passed, including three tests for missing-native failure, cancellation and local export arguments.
@@ -46,19 +53,18 @@ Use the bundled models at runtime. Do not add runtime downloads of image content
 - Android JavaScript export passed. This does not compile or execute Kotlin.
 - Lint passed on the new and changed privacy adapters, editor, scripts and JavaScript tests. Full-project lint still reports seven existing errors in EvidenceImageViewer.tsx.
 
-Not completed
+Remaining validation
 
-- Native Kotlin and Android build compilation.
-- Pixel model inference, JPEG export, orientation and cache checks.
+- Systematic orientation, cover alignment, JPEG metadata and cache-lifecycle checks.
 - Mobile speed, memory, battery and detector accuracy checks.
 - TalkBack and accessible correction checks.
 - Confirmation by traffic capture that only the reviewed JPEG is sent to Script 55.
 
-The native APIs follow Expo's local-module documentation and Android ONNX Runtime APIs, but the final native compatibility check is the later development/APK build.
+The successful APK test applies to the tested build and device. Repeat native build and device checks after changing dependencies or native code.
 
-## Later build and device verification
+## Rebuild and broader device verification
 
-Use the existing EAS preview APK profile only when ready. No APK is created by the installer.
+Use the existing EAS preview APK profile. Source installation and model preparation alone do not rebuild an installed APK.
 
 1. Run the model check, typecheck, tests and Expo Doctor.
 2. Build and install the new Android APK with the existing signing credentials.
@@ -69,7 +75,7 @@ Use the existing EAS preview APK profile only when ready. No APK is created by t
 7. Apply covers, restart Script 55 and compare the actual received image with the covered preview. Do not retain identifying originals in logs.
 8. Test landscape and portrait photos, rotation, zero detections, missing/corrupt weights in a test build, cancellation, leaving the screen, retries and oversized files.
 9. Record dimensions, correct cover placement, metadata behaviour, waiting time and peak memory. Check that useful water and drainage features remain readable.
-10. Only then merge and update assessment claims and evidence. Do not mix sessions from the old and new APK as if they used one build.
+10. Record which APK and commit each session used. Do not mix sessions from the old and new APK as if they used one build, or report unperformed tests as passed.
 
 ## References and attribution
 
@@ -82,3 +88,4 @@ Use the existing EAS preview APK profile only when ready. No APK is created by t
 - ONNX Runtime licence https://github.com/microsoft/onnxruntime/blob/main/LICENSE
 
 Only detector weights are used. The plate OCR model is not included. Detector output is not proof that all identifying details were removed. Other identifiers and secure transport still need consideration.
+
