@@ -1,0 +1,5 @@
+participant,task,outcome,elapsed_seconds,ease_1_to_5,interpretation,analysis_round_trip_seconds,failure_wait_seconds,recovery_seconds
+P03,T1,independent,130.010,5,not_scored,34.521,,
+P03,T2,independent,86.291,5,not_scored,,,
+P03,T3,independent,124.210,4,partial,10.013,,
+P03,T4,independent,82.160,5,not_scored,,60.008,9.273
